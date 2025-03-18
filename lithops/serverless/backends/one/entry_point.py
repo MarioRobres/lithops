@@ -14,9 +14,11 @@
 # limitations under the License.
 #
 
+import sys
+sys.path.insert(0, '/lithops')
+
 import pika
 import os
-import sys
 import time
 import uuid
 import json
