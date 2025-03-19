@@ -105,7 +105,7 @@ class OpenNebulaBackend:
         min_nodes = int(self.one_config['min_workers'])
         current_nodes = self._get_nodes()
 
-        if current_nodes > min_nodes:
+        if current_nodes > min_nodes and self.one_config["autoscale"] in {"all", "down"}:
             self._scale_one(current_nodes, min_nodes)
 
     def clean(self, all=False):
@@ -140,7 +140,7 @@ class OpenNebulaBackend:
         current_workers = self._get_nodes() * granularity
         max_workers = int(self.one_config['max_workers']) * granularity
 
-        if current_workers < functions and current_workers < max_workers:
+        if current_workers < functions and current_workers < max_workers and self.one_config["autoscale"] in {"all", "up"}:
             self._scale_one(current_workers // granularity, max_workers // granularity)
             current_workers = max_workers
 
