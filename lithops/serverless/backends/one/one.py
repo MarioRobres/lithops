@@ -82,7 +82,10 @@ class OpenNebulaBackend:
         """
         Deploys a new runtime
         """
-        pass
+        logger.info(f"Deploying fake runtime: {one_image_name}")
+        runtime_meta = self._generate_runtime_meta(one_image_name)
+
+        return runtime_meta
 
     def delete_runtime(self, one_image_name, memory, version):
         """
