@@ -97,6 +97,7 @@ class OpenNebulaBackend:
         """
         Deletes all jobs
         """
+        # TODO: scale down
         logger.debug('Cleaning RabbitMQ queues')
         self.channel.queue_delete(queue='task_queue')
 
@@ -112,6 +113,7 @@ class OpenNebulaBackend:
         Invoke -- return information about this invocation
         For array jobs only remote_invocator is allowed
         """
+        # TODO: scale up
         job_key = job_payload['job_key']
         granularity = self.one_config['worker_processes']
         times, res = divmod(job_payload['total_calls'], granularity)
@@ -201,6 +203,10 @@ class OpenNebulaBackend:
         Method that returns all the relevant information about the runtime set
         in config
         """
+        if 'runtime' not in self.one_config or self.one_config['runtime'] == 'default':
+            py_version = utils.CURRENT_PY_VERSION.replace('.', '')
+            self.one_config['runtime'] = f'one-runtime-v{py_version}'
+
         runtime_info = {
             'runtime_name': self.one_config['runtime'],
             'runtime_memory': self.one_config['runtime_memory'],
