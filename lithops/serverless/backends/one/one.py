@@ -15,7 +15,7 @@
 #
 
 from .gate import OneGateClient
-
+from .config import ServiceState
 
 import os
 import pika
@@ -68,8 +68,16 @@ class OpenNebulaBackend:
 
     def build_runtime(self, one_image_name, one_file, extra_args=[]):
         """
-        Builds a new runtime from a Dockerfile file and pushes it to the registry
+        Builds a new runtime from a requirements.txt file and pushes it to an OpenNebula VM template
         """
+        # TODO:
+        # 1. Get requirement.txt file from runtime['requirements_file']
+        # 2. Read the dependencies and instert them to the VM template
+        #    2.1. Get the VM Template basic from default configuration
+        #    2.2. Append dependencies in basic VM Template
+        # 3. Using OneGate, update the VM Template
+        # 4. Deploy at least 1 VM to get runtime_meta
+        # 5. Wait for it to be ready
         pass
 
     def _create_default_runtime(self):
@@ -93,11 +101,23 @@ class OpenNebulaBackend:
         """
         pass
 
+    def clear(self, job_keys=None):
+        min_nodes = int(self.one_config['min_workers'])
+        current_nodes = self._get_nodes()
+
+        if current_nodes > min_nodes:
+            self._scale_one(current_nodes, min_nodes)
+
     def clean(self, all=False):
         """
         Deletes all jobs
         """
-        # TODO: scale down
+        min_nodes = int(self.one_config['min_workers'])
+        current_nodes = self._get_nodes()
+
+        if current_nodes > min_nodes:
+            self._scale_one(current_nodes, min_nodes)
+
         logger.debug('Cleaning RabbitMQ queues')
         self.channel.queue_delete(queue='task_queue')
 
@@ -113,10 +133,19 @@ class OpenNebulaBackend:
         Invoke -- return information about this invocation
         For array jobs only remote_invocator is allowed
         """
-        # TODO: scale up
         job_key = job_payload['job_key']
         granularity = self.one_config['worker_processes']
-        times, res = divmod(job_payload['total_calls'], granularity)
+        functions = job_payload['total_calls']
+
+        current_workers = self._get_nodes() * granularity
+        max_workers = int(self.one_config['max_workers']) * granularity
+
+        if current_workers < functions and current_workers < max_workers:
+            self._scale_one(current_workers // granularity, max_workers // granularity)
+            current_workers = max_workers
+
+        granularity = current_workers
+        times, res = divmod(functions, granularity)
 
         for i in range(times + (1 if res != 0 else 0)):
             num_tasks = granularity if i < times else res
@@ -145,6 +174,23 @@ class OpenNebulaBackend:
         activation_id = f'lithops-{job_key.lower()}'
 
         return activation_id
+
+    def _get_nodes(self) -> int:
+        for role in self.client.get("service").get("SERVICE", {}).get("roles", []):
+            if "lithops_worker" in role.get("name", "").lower():
+                return int(role.get("cardinality"))
+
+        return 0
+
+    def _scale_one(self, nodes: int, scale_nodes: int) -> None:
+        service = self.client.get("service").get("SERVICE", {})
+        if service.get("state") == ServiceState.COOLDOWN.value:
+            logger.info(
+                    "Service is in 'COOLDOWN' state and can not be scaled"
+            )
+            return
+        logger.info(f"Scaling workers from {nodes} to {scale_nodes} nodes")
+        self.client.scale(scale_nodes, "lithops_worker")
 
     def _generate_runtime_meta(self, one_image_name):
         runtime_name = self._format_job_name(one_image_name, 128)

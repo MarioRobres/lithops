@@ -13,6 +13,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import enum
+
+
+@enum.unique
+class ServiceState(enum.Enum):
+    RUNNING = 2
+    SCALING = 9
+    COOLDOWN = 10
 
 
 DEFAULT_CONFIG_KEYS = {
