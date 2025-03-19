@@ -184,9 +184,9 @@ class OpenNebulaBackend:
 
     def _scale_one(self, nodes: int, scale_nodes: int) -> None:
         service = self.client.get("service").get("SERVICE", {})
-        if service.get("state") == ServiceState.COOLDOWN.value:
+        if service.get("state") != ServiceState.RUNNING.value:
             logger.info(
-                    "Service is in 'COOLDOWN' state and can not be scaled"
+                    "Service is not in 'RUNNING' state and can not be scaled"
             )
             return
         logger.info(f"Scaling workers from {nodes} to {scale_nodes} nodes")
